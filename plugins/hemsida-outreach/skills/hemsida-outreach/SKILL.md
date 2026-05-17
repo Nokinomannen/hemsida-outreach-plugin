@@ -21,30 +21,10 @@ Full B2B outreach flow: scrape web → Notion → score → scrape company data 
 
 ---
 
-## TEMPLATE FILES
-
-The template files are bundled inside this skill. When this skill runs, the system provides the skill base directory path in the context as "Base directory for this skill: /path/to/skills/hemsida-outreach/". The template files are at:
-
-- `{SKILL_BASE_DIR}/template/mockup-template.html`
-- `{SKILL_BASE_DIR}/template/fill-template.mjs`
-- `{SKILL_BASE_DIR}/template/example-company.json`
-
-**CRITICAL:** Read the "Base directory for this skill:" line at the top of your context to determine the actual path, then use it when calling fill-template.mjs. Do NOT hardcode any path.
-
-Example — if the system says `Base directory for this skill: /var/folders/xx/yyy/skills/hemsida-outreach/`, then run:
-```applescript
-do shell script "/usr/local/bin/node '/var/folders/xx/yyy/skills/hemsida-outreach/template/fill-template.mjs' '/Users/your-username/Desktop/[slug]-data.json' 2>&1"
-```
-
-Node.js v24 must be installed at `/usr/local/bin/node`. Use the FULL path always — bare `node` fails in osascript shell.
-
----
-
 ## NOTION DATABASE
 
 Database ID: `33f2c3c0-f254-81e3-99ba-d6c1e04e0fe4`
-
-> **Note for new users:** This is the shared Notion database. If you have a separate database, update this ID.
+Data Source ID: `33f2c3c0-f254-816d-91a2-000b2e8d7dfe`
 
 Schema:
 - Bolag (title), Stad (select), Hemsida (url), Telefon (phone), Adress (text)
@@ -52,14 +32,28 @@ Schema:
 - Status (select): Ej kontaktad / Target / Skip / Kontaktad
 - Email (email), Noteringar (text)
 
+**NOTE:** If "Kontaktad" or "Email" are missing from the schema, prompt the user to add them manually in Notion before running the pipeline.
+
+This database is designed for **continuous rolling intake**. New companies are added each session via Step 0. The pipeline only processes rows with Status = "Ej kontaktad".
+
 ---
 
 ## TOOLS REQUIRED
 
 - Notion MCP (read + write)
-- web_search / web_fetch (find companies + visit websites)
-- Outlook (via Node.js + osascript)
-- Node.js v24 at `/usr/local/bin/node`
+- Claude in Chrome / web_search (find companies + visit websites)
+- Outlook (create draft via Node.js + osascript — no MCP available)
+- Node.js v24 at `/usr/local/bin/node` (ALWAYS use full path — `node` alone fails in osascript shell)
+
+---
+
+## TEMPLATE FILES (mockup-generering)
+
+Mockups genereras INTE from scratch — använd alltid dessa filer:
+
+- **Template:** `/Users/noahkrueger/Documents/hemsida-outreach/template/mockup-template.html`
+- **Fill-script:** `/Users/noahkrueger/Documents/hemsida-outreach/template/fill-template.mjs`
+- **Exempel-JSON:** `/Users/noahkrueger/Documents/hemsida-outreach/template/example-company.json`
 
 ---
 
@@ -71,20 +65,37 @@ Goal: Find 30 new Swedish small businesses per session and add them to Notion.
 - Bransch: transport, logistik, bygg, VVS, städ, mark, schakt, åkeri
 - Storlek: 2-50 anställda (skip large enterprise)
 - Geografi: Stockholm, Göteborg, Malmö, Linköping — rotate each session
+- Indicator of weak web presence: old site, no booking, phone-only contact
 
 **How to find companies:**
-1. Use web_search: `åkeri [stad]`, `transportföretag [stad]`, `VVS [stad] litet bolag`
-2. Check if company already exists in Notion — skip duplicates
-3. Add new rows: Bolag, Stad, Hemsida, Telefon, Har hemsida, Status = "Ej kontaktad"
 
-**Target: 30 new rows per session.**
+1. Use web_search with queries like:
+   - `åkeri [stad] site:google.com/maps` — or Google Maps search
+   - `transportföretag [stad] hemsida`
+   - `VVS [stad] litet bolag`
+   - Allabolag.se search: `allabolag.se/bransch/transport/[stad]`
+
+2. For each company found, check if it already exists in Notion (search by Bolag name). Skip duplicates.
+
+3. Add new companies to Notion with:
+   - Bolag = company name
+   - Stad = city (must match existing options: Stockholm/Göteborg/Malmö/Linköping — if new city needed, note it)
+   - Hemsida = URL (if found)
+   - Telefon = phone (if found)
+   - Har hemsida = YES/NO
+   - Status = "Ej kontaktad"
+
+**Target: 30 new rows per session. Report how many were added.**
 
 ---
 
 ## STEP 1 — SCORE THE WEBSITE (0-10)
 
-For each company with Status = "Ej kontaktad", visit their website with web_fetch.
+For each company with Status = "Ej kontaktad":
 
+Visit the company's website using Claude in Chrome or web_fetch.
+
+**Scoring rubric:**
 | Criterion | Max | Low score when... |
 |---|---|---|
 | Teknisk funktion | 2p | Slow, broken, errors |
@@ -93,81 +104,118 @@ For each company with Status = "Ej kontaktad", visit their website with web_fetc
 | Innehåll och tydlighet | 2p | Vague, missing info |
 | CTA och kontaktmöjlighet | 2p | No clear contact |
 
-- Score ≤6 → Status = "Target"
-- Score 7-10 → Status = "Skip"
-- No website → Status = "Target", Hemsidebetyg = 0
+**Decision rule:**
+- Score <=6 -> Status = "Target"
+- Score 7-10 -> Status = "Skip"
+- No website -> Status = "Target" (strong opportunity), Hemsidebetyg = 0
+- Large enterprise -> Status = "Skip"
+
+Update Notion immediately: set Hemsidebetyg + Status.
 
 ---
 
 ## STEP 2 — SCRAPE COMPANY DATA (Target rows only)
 
-**OBLIGATORISKT: Besök alltid företagets faktiska hemsida.** Extrahera verklig data — anta aldrig utan att ha verifierat.
+**OBLIGATORISKT: Besok alltid foretagets faktiska hemsida.** Var inte lat — ga in pa sidan med Claude in Chrome eller web_fetch och extrahera verklig data. Anta aldrig information utan att ha verifierat den.
 
-**Färgextraktion:** Matcha primärfärg och accentfärg mot deras faktiska visuella identitet (logo, navbar, knappar).
+**Fargextraktion:** Matcha alltidrimarfarg och accentfarg mot foretagets faktiska visuella identitet (logo, navbar, knappar). Inspektera CSS eller anvand digital color picker.
 
-**Hero-bild:** Om de har en hero-bild på startsidan, använd den URL:en i `hero_image_url`. Annars, hitta en relevant bild via unsplash.com och kopiera den direkta CDN-URL:en: `https://images.unsplash.com/photo-{ID}?w=1600&q=80`. Använd ALDRIG `source.unsplash.com` — det är en redirect som inte fungerar i headless Chrome.
+**Hero-bild:** Om foretagets hemsida har en hero-bild (bakgrundsbild pa startsidan), anvand den direkta URL:en i `hero_image_url`. Om ingen hero-bild finns, hitta en relevant bild fran Unsplash CDN: `https://images.unsplash.com/photo-{PHOTO_ID}?w=1600&q=80` — sok via unsplash.com for att hitta ratt photo ID, kopiera sedan CDN-URL:en direkt. Anvand ALDRIG `source.unsplash.com` — det ar en redirect-tjanst som inte fungerar i headless Chrome.
 
-Gather: bolagsnamn, slug, grundningsår, stad, region, bransch, 4 specifika tjänster, telefon, email, primärfärg (hex), accentfärg (hex), hero_image_url.
+Gather from website + Allabolag.se + Google Maps:
+
+```
+- Bolagsnamn (exact, from their actual website)
+- Slug (URL-safe: lowercase, a/a/o for a/a/o, spaces->hyphens)
+- Grundningsar
+- Stad, Region (t.ex. "Vastra Gotaland")
+- Bransch (t.ex. "VVS", "Akeri", "Bygg")
+- Tjanster: exakt 4 specifika tjanster (fran deras faktiska hemsida, inte generiska)
+- Antal anstallda (approximate)
+- Kontaktperson (name + title if visible)
+- Telefon
+- Email (look in website footer, contact page, Google Maps listing)
+-Rimarfarg (hex) — extraherad fran logotyp eller dominerande varumarksfarg pa hemsidan
+- Accentfarg (hex) — sekundar varumarksfarg (knappar, highlights)
+- Hero image URL — direkt CDN-URL till en bild (se ovan)
+```
+
+Store in memory. Update Notion Email field if found.
 
 ---
 
-## STEP 3 — GENERATE HTML MOCKUP
+## STEP 3 — GENERATE HTML MOCKUP (template-baserat, INTE from scratch)
 
-**Generera ALDRIG HTML from scratch.** Använd fill-template.mjs från denna skills template/-katalog.
+**Generera ALDRIG HTML from scratch.** Anvand fill-template.mjs — det tar sekunder och kostar minimalt med credits.
 
-1. Bygg JSON (skriv till `~/Desktop/[slug]-data.json`):
+### Vad du ska gora
+
+1. Samla dessa datapunkter (fran Step 2) och skapa ett JSON-objekt:
 
 ```json
 {
   "company_name": "Bolagsnamn AB",
   "slug": "bolagsnamn-ab",
-  "industry": "Åkeri",
-  "tagline": "KORT TAGLINE MAX 5 ORD",
-  "city": "Stockholm",
-  "region": "Stockholms län",
-  "phone": "08-XX XX XX",
+  "industry": "VVS",
+  "tagline": "DIN VVS-EXPERT I GOTEBORG",
+  "city": "Goteborg",
+  "region": "Vastra Gotaland",
+  "phone": "031-XX XX XX",
   "email": "info@bolaget.se",
-  "founded_year": 2005,
-  "primary_color": "#1e2d3d",
-  "accent_color": "#e07b39",
-  "hero_image_url": "https://images.unsplash.com/photo-{ID}?w=1600&q=80",
-  "hero_subtext": "En mening om vad bolaget gör.",
+  "founded_year": 2003,
+  "primary_color": "#1a2535",
+  "accent_color": "#07a9e5",
+  "hero_image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1600&q=80",
+  "hero_subtext": "Professionella VVS-tjanster i Goteborg sedan 2003.",
   "services": [
-    { "name": "Tjänst 1", "desc": "Beskrivning.", "icon": "🚛" },
-    { "name": "Tjänst 2", "desc": "Beskrivning.", "icon": "📦" },
-    { "name": "Tjänst 3", "desc": "Beskrivning.", "icon": "⚙️" },
-    { "name": "Tjänst 4", "desc": "Beskrivning.", "icon": "✅" }
+    { "name": "Tjanst 1", "desc": "Kort beskrivning.", "icon": "🔧" },
+    { "name": "Tjanst 2", "desc": "Kort beskrivning.", "icon": "⚙️" },
+    { "name": "Tjanst 3", "desc": "Kort beskrivning.", "icon": "🏗️" },
+    { "name": "Tjanst 4", "desc": "Kort beskrivning.", "icon": "✅" }
   ],
   "stats": [
-    { "value": "2005", "label": "Grundat år" },
-    { "value": "20",   "label": "Anställda" },
-    { "value": "4",    "label": "Tjänsteområden" },
-    { "value": "20",   "label": "Års erfarenhet" }
+    { "value": "2003", "label": "Grundat ar" },
+    { "value": "300+", "label": "Nojda kunder" },
+    { "value": "4",    "label": "Tjansteomraden" },
+    { "value": "24/7", "label": "Jourtjanst" }
   ]
 }
 ```
 
-2. Kör fill-template.mjs (läs SKILL_BASE_DIR från systemkontexten):
+**Viktigt:** Anvand `hero_image_url` (direkt CDN-URL) — INTE `hero_image_query`. fill-template.mjs laddar ner bilden och baddar in den som base64, vilket garanterar att den syns i headless Chrome.
+
+**Tagline-regler:** 4-6 ord, svenska, versaler. Exempel:
+- VVS: "DIN VVS-EXPERT I [STAD]"
+- Akeri: "PALITLIGA TRANSPORTER I [REGION]"
+- Bygg: "[STAD]S BYGGARE SEDAN [AR]"
+
+2. Skriv JSON till Desktop: `/Users/noahkrueger/Desktop/[slug]-data.json`
+
+3. Kor fill-scriptet via osascript (ALLTID full sokvaig till node):
 
 ```applescript
-do shell script "/usr/local/bin/node '{SKILL_BASE_DIR}/template/fill-template.mjs' '/Users/{username}/Desktop/[slug]-data.json' 2>&1"
+do shell script "/usr/local/bin/node '/Users/noahkrueger/Documents/hemsida-outreach/template/fill-template.mjs' '/Users/noahkrueger/Desktop/[slug]-data.json' 2>&1"
 ```
 
-Output: `~/Desktop/[slug]-mockup.html`
+Resultat: `/Users/noahkrueger/Desktop/[slug]-mockup.html` — klar utan AI-generering.
 
 ---
 
-## STEP 4 — SCREENSHOT
+## STEP 4 — SCREENSHOT (Chrome headless + static HTML)
 
-**Steg 4a — Skapa static-version** (inaktivera CSS-animationer):
+**Goal:** Capture a 1200x675 PNG of the fully-rendered hero section for inline embedding in the email.
 
-Skriv och kör Node.js-skript (`~/Desktop/make_static_[slug].mjs`):
+**Why static HTML:** The mockup uses CSS animations that start hidden. Chrome headless captures the page before animations complete, resulting in invisible text. Solution: inject a style override that forces all animated elements to their final visible state.
+
+**Step 4a — Create static version:**
+
+Write and run this Node.js script (save as `make_static.mjs` in outputs folder):
 
 ```javascript
 import { readFileSync, writeFileSync } from 'fs';
-import { homedir } from 'os';
-const D = homedir() + '/Desktop';
-let html = readFileSync(D + '/[slug]-mockup.html', 'utf8');
+
+let html = readFileSync('/Users/noahkrueger/Desktop/[slug]-mockup.html', 'utf8');
+
 const override = [
   '<style>',
   '  nav { opacity: 1 !important; animation: none !important; }',
@@ -181,97 +229,108 @@ const override = [
   '  * { animation-duration: 0.001s !important; animation-delay: 0s !important; }',
   '</style>'
 ].join('\n');
+
 html = html.replace('</head>', override + '\n</head>');
-writeFileSync(D + '/[slug]-static.html', html);
-console.log('Static klar');
+writeFileSync('/Users/noahkrueger/Desktop/[slug]-static.html', html);
+console.log('Static version written');
 ```
 
-**Steg 4b — Ta screenshot:**
+Run via osascript: `do shell script "/usr/local/bin/node '/path/to/make_static.mjs' 2>&1"`
 
-```applescript
-do shell script "'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless=new --screenshot='/Users/{username}/Desktop/[slug]-screenshot.png' --window-size=1200,675 'file:///Users/{username}/Desktop/[slug]-static.html' 2>/dev/null"
+**Step 4b — Take screenshot:**
+
+```bash
+'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  --headless=new \
+  --screenshot='/Users/noahkrueger/Desktop/[slug]-screenshot.png' \
+  --window-size=1200,675 \
+  'file:///Users/noahkrueger/Desktop/[slug]-static.html' 2>/dev/null
 ```
 
-Verifiera att screenshoten är >200 KB — annars är hero-bilden troligen saknad.
+Result: `[slug]-screenshot.png` on Desktop (~600-800 KB PNG), showing hero with all text visible and hero image rendered.
+
+**Fallback:** If screenshot fails, proceed with Step 5 and use HTML attachment fallback (note "screenshot ej tillganglig" in Noteringar).
 
 ---
 
-## STEP 5 — SKAPA OUTLOOK-DRAFT
+## STEP 5 — SKAPA GMAIL-DRAFT (inline screenshot)
 
-Skriv och kör Node.js-skript (`~/Desktop/create_email_[slug].mjs`):
+**Mål:** Skapa ett Gmail-draft med screenshoten inbäddad direkt i mejlkroppen via Gmail MCP. Inget Outlook, inget Node.js-skript.
 
-```javascript
-import { readFileSync, writeFileSync } from 'fs';
-import { execSync } from 'child_process';
-import { homedir } from 'os';
-const D = homedir() + '/Desktop';
-const img = readFileSync(D + '/[slug]-screenshot.png');
-const b64 = img.toString('base64');
+**Metod: Gmail MCP → create_draft med inline-bilaga**
 
-const htmlBody = `<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 640px; margin: 0 auto; padding: 20px;">
+1. Base64-koda screenshoten via osascript:
+
+```applescript
+do shell script "/usr/local/bin/node -e \"const fs=require('fs'); process.stdout.write(fs.readFileSync(require('os').homedir()+'/Desktop/[slug]-screenshot.png').toString('base64'));\""
+```
+
+2. Anropa Gmail MCP `create_draft` med dessa parametrar:
+   - `to`: ["[COMPANY_EMAIL]"]
+   - `subject`: "[BOLAGSNAMN] - en helt ny version av er hemsida"
+   - `htmlBody`: (se mall nedan)
+   - `attachments`: `[{"content": "[BASE64_DATA]", "filename": "mockup.png", "inline": true, "mimeType": "image/png"}]`
+
+**htmlBody-mall:**
+```html
+<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 640px; margin: 0 auto; padding: 20px;">
 <p>Hej [BOLAGSNAMN]-teamet,</p>
 <p>Jag hittade er när jag letade efter [BRANSCH]-bolag i [STAD].</p>
 <p>Ni gör bra saker — [SPECIFIK DETALJ]. Men er hemsida speglar inte riktigt det ni är.</p>
-<p><img src="data:image/png;base64,${b64}" width="600" style="display:block; border-radius:4px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" alt="Förhandsgranskning av er nya hemsida" /></p>
+<p><img src="cid:mockup.png" width="600" style="display:block; border-radius:4px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" alt="Förhandsgranskning av er nya hemsida" /></p>
 <p>Det tar ungefär två veckor, kostar runt 10 000 SEK, och sedan har ni en sida som faktiskt reflekterar vad ni är.</p>
 <p>Det här är bara ett förslag — vi kan göra den helt annorlunda.</p>
 <p>Intresserad? Svar på detta mail räcker.</p>
-<p>[DITT NAMN]<br/>[DITT FÖRETAG] &middot; <a href="[DIN WEBBSIDA]">[DIN WEBBSIDA]</a></p>
-</body></html>`;
-
-writeFileSync(D + '/email_body_[slug].html', htmlBody, 'utf8');
-const script = [
-  'tell application "Microsoft Outlook"',
-  '\tset htmlContent to (read POSIX file "' + D + '/email_body_[slug].html" as «class utf8»)',
-  '\tset newMsg to make new outgoing message with properties {subject:"[BOLAGSNAMN] - en helt ny version av er hemsida", content:htmlContent}',
-  '\tmake new recipient at newMsg with properties {email address:{address:"[EMAIL]"}}',
-  '\topen newMsg',
-  'end tell'
-].join('\n');
-writeFileSync(D + '/create_outlook_[slug].applescript', script, 'utf8');
-execSync("osascript '" + D + "/create_outlook_[slug].applescript'");
-console.log('Draft öppnad i Outlook');
+<p>[DITT NAMN]<br/><a href="https://[DIN_DOMÄN]">[DIN_DOMÄN]</a></p>
+</body></html>
 ```
 
----
+**Viktigt:** `cid:mockup.png` refererar till inline-bilagan via dess filnamn. Gmail visar bilden direkt i mejlkroppen.
 
-## STEP 6 — UPPDATERA NOTION
-
-- Status → "Kontaktad"
-- Noteringar → "Draft skapad [DATUM]. Hemsidebetyg: [SCORE]/10."
-
-**Max 5 drafts per körning.**
+**Fallback:** Om screenshot saknas, skicka utan bild och notera "screenshot ej tillgänglig" i ämnesraden.
 
 ---
 
-## TEKNISKA KRAV
+## STEP 6 — UPDATE NOTION
 
-- Använd ALLTID `/usr/local/bin/node` — aldrig bara `node`
-- Skriv alltid Node.js-skript till fil och kör via sökväg — aldrig inline via `osascript -e`
-- `hero_image_url` måste vara en direkt CDN-URL — aldrig `source.unsplash.com`
-- Screenshot <200 KB = hero-bild saknas, kontrollera URL
+After draft is created and reviewed by Noah:
+
+Update Notion row:
+- Status -> "Kontaktad"
+- Noteringar -> "Draft skapad [DATE]. Hemsidebetyg: [SCORE]/10. [ev. notering]"
+
+**Daily limit:** Max 5 per pipeline-korning. Stop and report after 5 completed drafts.
 
 ---
 
-## PRISER (intern referens)
+## PRICING REFERENCE (internal only)
 
 - Hemsida: ~10 000 SEK, ~2 veckor leverans
-- Upsell: Underhåll, SEO, AI-integrationer
+- Upsell: Underhall, SEO, AI-integrationer
 
 ---
 
-## FELHANTERING
+## ERROR HANDLING
 
-| Situation | Åtgärd |
+| Situation | Action |
 |---|---|
-| Hemsida ej nåbar | Noteringar: "Hemsida ej nåbar", hoppa till nästa |
-| Ingen email hittad | Noteringar: "Ingen email hittad", flagga för manuell uppföljning |
-| Screenshot misslyckas | Fortsätt med HTML-bilaga som fallback |
-| `node: command not found` | Använd `/usr/local/bin/node` |
-| Hero-bild 404 | Hitta annan Unsplash CDN-URL |
+| Website unreachable | Noteringar: "Hemsida ej nåbar", skip to next |
+| No email found | Noteringar: "Ingen email hittad", skip email step, flag for manual follow-up |
+| Screenshot fails | Proceed with HTML attachment fallback |
+| Company already in Notion | Skip during Step 0 scraping |
+| Notion update fails | Log error, continue |
+| `node: command not found` | Always use `/usr/local/bin/node` — never bare `node` in osascript |
+| fill-template.mjs not found | Check template path in TEMPLATE FILES section above |
+| Hero image not loading | Verify `hero_image_url` is a direct CDN URL (not source.unsplash.com redirect) |
+| Screenshot is ~50KB (tiny) | Hero image missing — check hero_image_url is a direct images.unsplash.com URL |
 
 ---
 
-## SESSIONSSUMMERING
+## SESSION SUMMARY
 
-Rapportera: X drafts skapade, bolagsnamn, eventuella fel.
+Report after each batch:
+- X new companies added to Notion (Step 0)
+- X companies scored, Y Target / Z Skip
+- X drafts created (max 5 per session)
+- Errors or flagged rows
+- Notion link for review
