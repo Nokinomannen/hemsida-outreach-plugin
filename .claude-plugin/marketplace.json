@@ -1,0 +1,13 @@
+{
+  "name": "daugbjerg-ventures",
+  "owner": {
+    "name": "Daugbjerg Ventures"
+  },
+  "plugins": [
+    {
+      "name": "hemsida-outreach",
+      "source": "./plugins/hemsida-outreach",
+      "description": "B2B outreach-pipeline för webdesignförsäljning till svenska småbolag. Genererar mockups, screenshots och Outlook-draftar automatiskt."
+    }
+  ]
+}

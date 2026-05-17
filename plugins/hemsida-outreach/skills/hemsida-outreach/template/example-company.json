@@ -1,0 +1,45 @@
+{
+  "company_name": "Karlssons Åkeri AB",
+  "slug": "karlssons-akeri",
+  "industry": "Åkeri",
+  "tagline": "DIN PÅLITLIGA PARTNER I STOCKHOLM",
+  "city": "Stockholm",
+  "region": "Stockholms län",
+  "phone": "08-123 45 67",
+  "email": "info@karlssonssakeri.se",
+  "founded_year": 1998,
+  "primary_color": "#1a2535",
+  "accent_color": "#e8a020",
+  "hero_image_query": "truck+stockholm+logistics",
+  "hero_subtext": "Transporter och logistik i Stockholmsregionen sedan 1998.",
+
+  "services": [
+    {
+      "name": "Godstransport",
+      "desc": "Snabba och säkra transporter av gods i hela Mälardalen.",
+      "icon": "🚛"
+    },
+    {
+      "name": "Flytt & Lastbil",
+      "desc": "Professionella flyттar för privatpersoner och företag.",
+      "icon": "📦"
+    },
+    {
+      "name": "Containertjänst",
+      "desc": "Uthyrning och tömning av containrar för bygg och rivning.",
+      "icon": "🏗️"
+    },
+    {
+      "name": "Maskinfrakt",
+      "desc": "Transport av tunga maskiner och specialgods.",
+      "icon": "⚙️"
+    }
+  ],
+
+  "stats": [
+    { "value": "1998", "label": "Grundat år" },
+    { "value": "200+", "label": "Nöjda kunder" },
+    { "value": "12",   "label": "Fordon i flottan" },
+    { "value": "24/7", "label": "Beredskap" }
+  ]
+}
