@@ -4,7 +4,7 @@ description: >
   Automated B2B outreach pipeline for web design sales targeting Swedish small businesses.
   Scrapes Google Maps and the web for new target companies, adds them to Notion, visits
   their websites, scores them, generates personalized HTML mockups, screenshots them,
-  creates Outlook email drafts with embedded screenshot, and updates Notion status.
+  creates Gmail drafts with embedded screenshot, and updates Notion status.
   Use this skill whenever the user writes "KÖR HEMSIDA-PIPELINE" or "KÖR SCRAPING" or
   asks to run the website outreach flow, find new companies, generate mockups, or process
   the Åkerier Sverige database. Also trigger for: hemsida-pipeline, outreach, mockup
@@ -13,7 +13,7 @@ description: >
 
 # Hemsida Outreach Pipeline
 
-Full B2B outreach flow: scrape web → Notion → score → scrape company data → HTML mockup (template) → screenshot → Outlook draft → update Notion.
+Full B2B outreach flow: scrape web → Notion → score → scrape company data → HTML mockup (template) → screenshot → Gmail draft → update Notion.
 
 **Trigger phrases:**
 - `KÖR HEMSIDA-PIPELINE` — runs full pipeline on existing Notion rows
@@ -42,7 +42,7 @@ This database is designed for **continuous rolling intake**. New companies are a
 
 - Notion MCP (read + write)
 - Claude in Chrome / web_search (find companies + visit websites)
-- Outlook (create draft via Node.js + osascript — no MCP available)
+- Gmail MCP (create_draft with inline attachment)
 - Node.js v24 at `/usr/local/bin/node` (ALWAYS use full path — `node` alone fails in osascript shell)
 
 ---

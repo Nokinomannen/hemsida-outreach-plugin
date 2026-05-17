@@ -1,7 +1,7 @@
 {
   "name": "hemsida-outreach",
   "version": "0.1.0",
-  "description": "B2B outreach-pipeline för webdesignförsäljning till svenska småbolag. Scrapar bolag, genererar personaliserade HTML-mockups, tar screenshots och skapar Outlook-draftar.",
+  "description": "B2B outreach-pipeline för webdesignförsäljning till svenska småbolag. Scrapar bolag, genererar personaliserade HTML-mockups, tar screenshots och skapar Gmail-draftar.",
   "author": {
     "name": "Daugbjerg Ventures"
   },

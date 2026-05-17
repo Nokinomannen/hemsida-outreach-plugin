@@ -7,7 +7,7 @@
     {
       "name": "hemsida-outreach",
       "source": "./plugins/hemsida-outreach",
-      "description": "B2B outreach-pipeline för webdesignförsäljning till svenska småbolag. Genererar mockups, screenshots och Outlook-draftar automatiskt."
+      "description": "B2B outreach-pipeline för webdesignförsäljning till svenska småbolag. Genererar mockups, screenshots och Gmail-draftar automatiskt."
     }
   ]
 }

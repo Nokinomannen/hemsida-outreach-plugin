@@ -12,14 +12,14 @@ Automatiserar hela flödet från att hitta bolag till att skicka ett personalise
 4. Besöker deras faktiska hemsida och extraherar färger, tjänster, hero-bild
 5. Genererar en personaliserad HTML-mockup på sekunder via mall-systemet
 6. Tar en screenshot med headless Chrome
-7. Skapar ett Outlook-draft med screenshoten inbäddad direkt i mejlkroppen
+7. Skapar ett Gmail-draft med screenshoten inbäddad direkt i mejlkroppen
 8. Uppdaterar Notion-statusen
 
 ## Krav
 
 - **Node.js v24** installerat på `/usr/local/bin/node`
 - **Google Chrome** installerat på `/Applications/Google Chrome.app`
-- **Microsoft Outlook** installerat
+- **Gmail MCP** ansluten i Cowork
 - **Notion MCP** ansluten i Cowork
 - Notion-databasen skapad (se schema i SKILL.md)
 
