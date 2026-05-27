@@ -65,6 +65,8 @@ function buildVars(data, heroDataURI) {
     ACCENT_COLOR:  data.accent_color,
     HERO_IMAGE_URL: heroDataURI,
     HERO_SUBTEXT:  data.hero_subtext || `${data.industry}-tjänster i ${data.city}.`,
+    ABOUT_HEADING: data.about_heading || `${data.company_name} — proffs i ${data.city}`,
+    ABOUT_BODY:    data.about_body    || `Vi är ett lokalt företag i ${data.city} specialiserade på ${data.industry}.`,
 
     SERVICE_1_NAME: data.services[0]?.name || '',
     SERVICE_1_DESC: data.services[0]?.desc || '',

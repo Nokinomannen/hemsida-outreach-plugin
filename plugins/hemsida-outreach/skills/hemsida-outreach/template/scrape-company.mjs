@@ -210,19 +210,20 @@ function extractServicesFromDescription(description, category) {
 
 // ── IKONER PER BRANSCH ────────────────────────────────────────────────────────
 
+// SVG-ikonnyckel — matchas av mockup-template.html ICONS-map
 const INDUSTRY_ICONS = {
-  'åkeri':     ['🚛', '📦', '🗺️', '✅'],
-  'transport': ['🚛', '📦', '⚡', '🤝'],
-  'logistik':  ['📦', '🏭', '📋', '✅'],
-  'bygg':      ['🏗️', '🔨', '📐', '✅'],
-  'vvs':       ['🔧', '⚙️', '🚿', '✅'],
-  'städ':      ['🧹', '✨', '🏠', '✅'],
-  'mark':      ['⛏️', '🚜', '🌍', '✅'],
-  'schakt':    ['🚜', '⛏️', '🏗️', '✅'],
+  'åkeri':     ['transport', 'logistik', 'mark', 'reparation'],
+  'transport': ['transport', 'logistik', 'reparation', 'default'],
+  'logistik':  ['logistik', 'transport', 'mark', 'default'],
+  'bygg':      ['bygg', 'mark', 'reparation', 'default'],
+  'vvs':       ['vvs', 'reparation', 'bygg', 'default'],
+  'städ':      ['städ', 'default', 'bygg', 'reparation'],
+  'mark':      ['mark', 'bygg', 'transport', 'default'],
+  'schakt':    ['mark', 'bygg', 'transport', 'reparation'],
 };
 
 function getIcons(category) {
-  return INDUSTRY_ICONS[category?.toLowerCase()] || ['⭐', '🔧', '📋', '✅'];
+  return INDUSTRY_ICONS[category?.toLowerCase()] || ['default', 'reparation', 'bygg', 'transport'];
 }
 
 // ── BÄSTA UNSPLASH-BILD PER BRANSCH ──────────────────────────────────────────
@@ -340,22 +341,22 @@ function buildMockupData(hitaCompany) {
     // Fallback baserat på bransch
     const fallbacks = {
       'åkeri':     [
-        { name: 'Godstransport', desc: 'Pålitliga transporter av gods och material.', icon: '🚛' },
-        { name: 'Expressleverans', desc: 'Snabb och säker leverans när du behöver.', icon: '⚡' },
-        { name: 'Specialtransport', desc: 'Transport av tunga och överkranskjutande gods.', icon: '🏗️' },
-        { name: 'Nationella rutter', desc: 'Regelbundna turer i hela Sverige.', icon: '🗺️' },
+        { name: 'Godstransport', desc: 'Pålitliga transporter av gods och material.', icon: 'transport' },
+        { name: 'Expressleverans', desc: 'Snabb och säker leverans när du behöver.', icon: 'logistik' },
+        { name: 'Specialtransport', desc: 'Transport av tunga och överkranskjutande gods.', icon: 'mark' },
+        { name: 'Nationella rutter', desc: 'Regelbundna turer i hela Sverige.', icon: 'default' },
       ],
       'bygg':      [
-        { name: 'Nybyggnation', desc: 'Vi bygger ditt projekt från grunden.', icon: '🏗️' },
-        { name: 'Renovering', desc: 'Professionell renovering av alla slag.', icon: '🔨' },
-        { name: 'Markarbeten', desc: 'Schaktning, dränering och grundläggning.', icon: '⛏️' },
-        { name: 'Projektledning', desc: 'Vi tar helhetsansvar för ditt projekt.', icon: '📋' },
+        { name: 'Nybyggnation', desc: 'Vi bygger ditt projekt från grunden.', icon: 'bygg' },
+        { name: 'Renovering', desc: 'Professionell renovering av alla slag.', icon: 'reparation' },
+        { name: 'Markarbeten', desc: 'Schaktning, dränering och grundläggning.', icon: 'mark' },
+        { name: 'Projektledning', desc: 'Vi tar helhetsansvar för ditt projekt.', icon: 'default' },
       ],
       'vvs':       [
-        { name: 'VVS-installation', desc: 'Professionell installation av VVS-system.', icon: '🔧' },
-        { name: 'Rörarbeten', desc: 'Allt inom rör och vatteninstallation.', icon: '⚙️' },
-        { name: 'Värmepumpar', desc: 'Installation och service av värmepumpar.', icon: '🌡️' },
-        { name: 'Jourtjänst', desc: 'Vi finns tillgängliga när du behöver oss.', icon: '⏰' },
+        { name: 'VVS-installation', desc: 'Professionell installation av VVS-system.', icon: 'vvs' },
+        { name: 'Rörarbeten', desc: 'Allt inom rör och vatteninstallation.', icon: 'reparation' },
+        { name: 'Värmepumpar', desc: 'Installation och service av värmepumpar.', icon: 'default' },
+        { name: 'Jourtjänst', desc: 'Vi finns tillgängliga när du behöver oss.', icon: 'reparation' },
       ],
     };
     services = fallbacks[industryKey] || fallbacks['åkeri'];
@@ -384,13 +385,16 @@ function buildMockupData(hitaCompany) {
     ? description.split('.')[0].slice(0, 120).trim() + '.'
     : `Professionella ${category}-tjänster i ${city} och omnejd.`;
 
-  // Stats — använd tillgänglig data
-  const stats = [
-    { value: address?.postal?.slice(0,3) ? city : city, label: 'Stad' },
-    { value: phone ? '✓' : '—', label: 'Direktkontakt' },
-    { value: '4', label: 'Tjänsteområden' },
-    { value: social_media?.length > 0 ? 'Ja' : 'Nej', label: 'Social media' },
-  ];
+  // Om oss-sektion
+  const aboutHeading = description
+    ? `${name} — proffs i ${city}`
+    : `Välkommen till ${name}`;
+  const aboutBody = description
+    ? (description.length > 300 ? description.slice(0, 300).trim() + '…' : description)
+    : `Vi är ett lokalt företag i ${city} som specialiserar oss på ${category}. Kontakta oss för att diskutera dina behov.`;
+
+  // Stats — sparas för bakåtkompatibilitet men visas ej i ny mall
+  const stats = [];
 
   return {
     company_name: name,
@@ -406,6 +410,8 @@ function buildMockupData(hitaCompany) {
     accent_color: colors.accent,
     hero_image_url: heroImageUrl,
     hero_subtext: heroSubtext,
+    about_heading: aboutHeading,
+    about_body: aboutBody,
     services: services,
     stats: stats,
     // Extra metadata (används inte av process-company.mjs men sparas för referens)
