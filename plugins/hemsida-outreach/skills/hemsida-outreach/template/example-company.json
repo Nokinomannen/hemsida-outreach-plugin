@@ -10,36 +10,31 @@
   "founded_year": 1998,
   "primary_color": "#1a2535",
   "accent_color": "#e8a020",
-  "hero_image_query": "truck+stockholm+logistics",
+  "hero_image_url": "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1600&q=80",
   "hero_subtext": "Transporter och logistik i Stockholmsregionen sedan 1998.",
-
+  "about_heading": "Karlssons Åkeri — proffs i Stockholm",
+  "about_body": "Vi är ett familjeföretag grundat 1998 med lång erfarenhet av godstransporter i Mälardalen. Våra förare är certifierade och vi erbjuder flexibla lösningar för både privatpersoner och företag.",
   "services": [
     {
       "name": "Godstransport",
       "desc": "Snabba och säkra transporter av gods i hela Mälardalen.",
-      "icon": "🚛"
+      "icon": "transport"
     },
     {
       "name": "Flytt & Lastbil",
-      "desc": "Professionella flyттar för privatpersoner och företag.",
-      "icon": "📦"
+      "desc": "Professionella flyttar för privatpersoner och företag.",
+      "icon": "logistik"
     },
     {
       "name": "Containertjänst",
       "desc": "Uthyrning och tömning av containrar för bygg och rivning.",
-      "icon": "🏗️"
+      "icon": "mark"
     },
     {
       "name": "Maskinfrakt",
       "desc": "Transport av tunga maskiner och specialgods.",
-      "icon": "⚙️"
+      "icon": "reparation"
     }
   ],
-
-  "stats": [
-    { "value": "1998", "label": "Grundat år" },
-    { "value": "200+", "label": "Nöjda kunder" },
-    { "value": "12",   "label": "Fordon i flottan" },
-    { "value": "24/7", "label": "Beredskap" }
-  ]
+  "stats": []
 }

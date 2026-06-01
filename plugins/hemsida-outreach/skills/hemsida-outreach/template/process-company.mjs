@@ -30,15 +30,23 @@ const mockupFile = join(D, `${slug}-mockup.html`);
 const staticFile = join(D, `${slug}-static.html`);
 let html = readFileSync(mockupFile, 'utf8');
 const override = `<style>
-  nav { opacity: 1 !important; animation: none !important; }
-  .hero-badge { opacity: 1 !important; transform: none !important; animation: none !important; }
-  .hero-h1 .word { clip-path: inset(0 0% 0 0) !important; animation: none !important; }
-  .hero-sub { opacity: 1 !important; transform: none !important; animation: none !important; }
-  .hero-cta { opacity: 1 !important; transform: scale(1) !important; animation: none !important; }
-  .hero-phone { opacity: 1 !important; animation: none !important; }
-  .service-card { opacity: 1 !important; transform: translateY(0) !important; transition: none !important; }
-  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
-  * { animation-duration: 0.001s !important; animation-delay: 0s !important; }
+  /* Force all animated elements visible for headless screenshot */
+  *, *::before, *::after {
+    animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+    animation-fill-mode: both !important;
+    transition-duration: 0s !important;
+  }
+  /* New template selectors */
+  nav { opacity: 1 !important; }
+  .hero-eyebrow { opacity: 1 !important; transform: none !important; }
+  .hero-h1 .word { clip-path: inset(0 0% 0 0) !important; }
+  .hero-sub { opacity: 1 !important; transform: none !important; }
+  .hero-actions { opacity: 1 !important; transform: none !important; }
+  .hero-phone-link { opacity: 1 !important; }
+  .btn-primary { opacity: 1 !important; transform: none !important; }
+  .service-card { opacity: 1 !important; transform: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
 </style>`;
 html = html.replace('</head>', override + '\n</head>');
 writeFileSync(staticFile, html, 'utf8');
@@ -47,7 +55,7 @@ console.error(`[2/4] Static HTML klar: ${staticFile}`);
 // Steg 3: Screenshot med headless Chrome
 const screenshotFile = join(D, `${slug}-screenshot.png`);
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-execSync(`'${chrome}' --headless=new --screenshot='${screenshotFile}' --window-size=1200,675 'file://${staticFile}' 2>/dev/null`);
+execSync(`'${chrome}' --headless=new --screenshot='${screenshotFile}' --window-size=1280,1500 'file://${staticFile}' 2>/dev/null`);
 console.error(`[3/4] Screenshot tagen: ${screenshotFile}`);
 
 // Steg 4: Kontrollera storlek (varning om hero-bild saknas)
