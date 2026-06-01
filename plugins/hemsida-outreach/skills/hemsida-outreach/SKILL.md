@@ -160,14 +160,16 @@ Scriptet:
 
 ---
 
-## STEG 3 — GENERERA MOCKUP + SCREENSHOT
+## STEG 3 — GENERERA MOCKUP + SCREENSHOT + UPPLADDNING
 
 ```applescript
 do shell script "/usr/local/bin/node '{SKILL_BASE_DIR}/template/process-company.mjs' '[slug]' 2>/tmp/process-[slug].log"
 ```
 
-- **stdout** = base64 av screenshoten → spara som `SCREENSHOT_B64`
+- **stdout** = URL till mockup-bilden (transfer.sh eller GitHub CDN) → spara som `IMAGE_URL`
+- Scriptet skapar automatiskt: screenshot (1280px) på Desktop + email-JPEG (600px) uppladdad till CDN
 - Om `[VARNING] Screenshot är bara X bytes` → kontrollera `hero_image_url` i data.json
+- Om `IMAGE_URL` är tom → kontrollera `/tmp/process-[slug].log`
 
 ---
 
@@ -176,25 +178,26 @@ do shell script "/usr/local/bin/node '{SKILL_BASE_DIR}/template/process-company.
 Anropa Gmail MCP `create_draft`:
 
 - `to`: `["[BOLAGETS EMAIL]"]` — om email saknas, skippa och notera i Notion
-- `subject`: `"[BOLAGSNAMN] - en helt ny version av er hemsida"`
-- `htmlBody`:
+- `subject`: `"[BOLAGSNAMN] - förslag på ny hemsida"`
+- `htmlBody`: Anpassa mallen nedan med bolagets **specifika data** från data.json:
+  - `[SPECIFIK DETALJ]` = konkret mening från description/hero_subtext (INTE generisk)
+  - `[SPECIFIKT PROBLEM]` = verkligt problem med deras befintliga hemsida (gammal? ingen mobilanpassning? One.com-mall?)
+  - `[IMAGE_URL]` = URL från steg 3
 
+**EMAIL-MALL:**
 ```html
-<html><body style="font-family: Arial, sans-serif; color: #333; max-width: 640px; margin: 0 auto; padding: 20px;">
-<p>Hej [BOLAGSNAMN]-teamet,</p>
-<p>Jag hittade er på hitta.se när jag letade efter [BRANSCH]-bolag i [STAD].</p>
-<p>Ni gör bra saker — [SPECIFIK DETALJ från hitta-beskrivningen]. Men ni verkar inte ha en hemsida som speglar det.</p>
-<p><img src="cid:mockup.png" width="600" style="display:block; border-radius:4px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" alt="Förhandsgranskning av er nya hemsida" /></p>
-<p>Det tar ungefär två veckor, kostar runt 10 000 SEK, och sedan har ni en sida som faktiskt reflekterar vad ni är.</p>
-<p>Det här är bara ett förslag — vi kan göra den helt annorlunda.</p>
-<p>Intresserad? Svar på detta mail räcker.</p>
-<p>[DITT NAMN]<br/><a href="https://[DIN_DOMÄN]">[DIN_DOMÄN]</a></p>
+<html><body style="font-family: Arial, sans-serif; color: #222; max-width: 620px; margin: 0 auto; padding: 24px; line-height: 1.6;">
+<p>Hej [BOLAGSNAMN],</p>
+<p>Jag stötte på er verksamhet och tittade lite på er sida. Ni verkar göra bra saker — [SPECIFIK DETALJ]. Men hemsidan håller inte riktigt med: [SPECIFIKT PROBLEM].</p>
+<p>Jag tog mig friheten att göra ett snabbt förslag på hur den skulle kunna se ut:</p>
+<p><img src="[IMAGE_URL]" width="600" style="display:block; border-radius:6px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); margin: 8px 0;" alt="Förslag på ny hemsida" /></p>
+<p>Runt 10 000 kr, ungefär två veckor. Det är ert varumärke, era färger, era tjänster — vi ändrar vad ni vill.</p>
+<p>Intresserad? Svara på det här mailet.</p>
+<p>Noah<br/><a href="https://dbventures.dk" style="color:#555;">dbventures.dk</a></p>
 </body></html>
 ```
 
-- `attachments`: `[{"content": "[SCREENSHOT_B64]", "filename": "mockup.png", "inline": true, "mimeType": "image/png"}]`
-
-**OBS:** `cid:mockup.png` = inline-bilaga. Gmail visar bilden direkt i mejlkroppen.
+**OBS:** Bilden laddas direkt från CDN-URL — fungerar i alla emailklienter utan bilaga.
 **Fallback:** Saknas email → notera "Ingen email — ring [TELEFON]" i Notion, skippa draft.
 
 ---
@@ -202,7 +205,7 @@ Anropa Gmail MCP `create_draft`:
 ## STEG 5 — UPPDATERA NOTION
 
 - Status → "Kontaktad"
-- Noteringar → "Draft skapad [DATUM]. [website_label]. Källa: hitta.se."
+- Noteringar → "Draft skapad [DATUM]. Hemsida: [URL] (betyg [X]/10). Mockup: [IMAGE_URL]"
 
 **Max 5 drafts per körning.**
 

@@ -5,7 +5,7 @@
 // Returnerar base64 av screenshoten på stdout (för Gmail MCP)
 
 import { readFileSync, writeFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -66,5 +66,42 @@ if (size < 200000) {
   console.error(`[4/4] Screenshot OK: ${Math.round(size/1024)} KB`);
 }
 
-// Output: base64 på stdout (fångas av osascript-anropet)
-process.stdout.write(readFileSync(screenshotFile).toString('base64'));
+// Steg 5: Skapa email-JPEG (600px bred, kvalitet 60) och ladda upp till 0x0.st
+const emailFile = join(D, `${slug}-email.jpg`);
+try {
+  execSync(`sips -s format jpeg -s formatOptions 60 '${screenshotFile}' --out '${emailFile}' 2>/dev/null`);
+  execSync(`sips -Z 600 '${emailFile}' --out '${emailFile}' 2>/dev/null`);
+  const emailSize = readFileSync(emailFile).length;
+  console.error(`[5/5] Email-JPEG klar: ${Math.round(emailSize/1024)} KB — laddar upp...`);
+
+  // Ladda upp till transfer.sh (14 dagars hosting, ingen API-nyckel)
+  const filename = `${slug}-mockup.jpg`;
+  const r = spawnSync('curl', [
+    '-s', '--upload-file', emailFile,
+    `https://transfer.sh/${filename}`
+  ], { timeout: 30000, maxBuffer: 1024 * 20 });
+  const uploadResult = (r.stdout?.toString() || '').trim();
+
+  if (uploadResult.startsWith('https://')) {
+    console.error(`[5/5] Bild uppladdad: ${uploadResult}`);
+    process.stdout.write(uploadResult);  // stdout = URL
+  } else {
+    // Fallback: GitHub raw URL via push till repo
+    console.error(`[5/5] transfer.sh misslyckades, försöker GitHub...`);
+    try {
+      const repoDir = '/tmp/hemsida-mockups';
+      execSync(`rm -rf ${repoDir} && git clone https://github.com/Nokinomannen/hemsida-outreach-plugin.git ${repoDir} 2>/dev/null`, { timeout: 30000 });
+      execSync(`mkdir -p ${repoDir}/mockups && cp '${emailFile}' ${repoDir}/mockups/${filename}`, { timeout: 5000 });
+      execSync(`cd ${repoDir} && git config user.email 'noah.krueger@hotmail.se' && git config user.name 'Noah Krueger' && git add mockups/${filename} && git commit -m 'Mockup: ${slug}' && git push origin main 2>/dev/null`, { timeout: 30000 });
+      const ghUrl = `https://raw.githubusercontent.com/Nokinomannen/hemsida-outreach-plugin/main/mockups/${filename}`;
+      console.error(`[5/5] GitHub upload OK: ${ghUrl}`);
+      process.stdout.write(ghUrl);
+    } catch (ghErr) {
+      console.error(`[VARNING] Båda uploads misslyckades`);
+      process.stdout.write('');
+    }
+  }
+} catch (e) {
+  console.error(`[VARNING] Email-steg fel: ${e.message}`);
+  process.stdout.write('');
+}

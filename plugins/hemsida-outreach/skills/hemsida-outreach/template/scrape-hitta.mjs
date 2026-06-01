@@ -170,10 +170,19 @@ function guessDomain(companyName) {
       const body = r.stdout?.toString() || '';
       if (!body || body.length < 200) continue;
 
-      // Kontrollera att sidan faktiskt verkar tillhöra bolaget
-      // (domain-slug eller bolagsnamn bör finnas i HTML)
+      // Kräv att sidan:
+      // 1. Innehåller bolagets namnslug (eller namnslug + branschord)
+      // 2. Innehåller ett branschspecifikt nyckelord (inte en kommuns/persons sajt)
       const bodyLower = body.toLowerCase().replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o');
-      if (bodyLower.includes(nameSlug) || bodyLower.includes(words[0])) {
+      const INDUSTRY_WORDS = /transport|lastbil|akeri|frakt|spedition|kran|schakt|bygg|vvs|stad|mark|logistik|fordon|truck|garder|container|reservdel|bildemonter/;
+      const hasIndustry = INDUSTRY_WORDS.test(bodyLower);
+      const hasNameSlug = bodyLower.includes(nameSlug);       // båda ord: "grimsasakeri"
+      const hasFirstWord = bodyLower.includes(words[0]);       // t.ex. "grimsas"
+
+      // Kräv industrimatch ALLTID — stoppar kommuner, konstnärer, privatpersoner
+      if (!hasIndustry) continue;
+      // Kräv antingen namnslug (specifikt) eller förstaord (med industrimatch)
+      if (hasNameSlug || (hasFirstWord && words.length >= 2)) {
         return `https://${domain}`;
       }
     } catch {}
