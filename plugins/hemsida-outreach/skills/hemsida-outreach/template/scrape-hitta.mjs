@@ -129,6 +129,92 @@ async function fetchSearchPage(page) {
   return filtered;
 }
 
+// ── WEBSÖKNING: hitta hemsida när sameAs är tom ──────────────────────────────
+
+const BUSINESS_WORDS = ['ab','hb','kb','aktiebolag','handelsbolag','i','och','&',
+                        'ekonomisk','forening','stiftelse'];
+
+function slugifyName(s) {
+  return s.toLowerCase()
+    .replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !BUSINESS_WORDS.includes(w));
+}
+
+// Steg 1: Prova vanliga domänmönster direkt
+function guessDomain(companyName) {
+  const words = slugifyName(companyName);
+  if (!words.length) return null;
+
+  // Mer specifika kandidater FÖRST — undviker falska positiver som ort-sajter
+  const candidates = [
+    words.join('') + '.se',                    // grimsasakeri.se, holmsjobildemonteringakeri.se
+    words.slice(0,2).join('') + '.se',          // holmsjobildemontering.se
+    words.join('-') + '.se',                    // grimsas-akeri.se
+    words.slice(0,2).join('-') + '.se',         // holmsjo-bildemontering.se
+    words[0] + words[words.length-1] + '.se',   // holmsjoakeri.se
+    words[0] + '.se',                           // SIST — kan vara ort/generisk domän
+  ].filter((v,i,a) => a.indexOf(v) === i);
+
+  // Sök igenom kandidater och verifiera att sidan innehåller bolagsnamnet
+  const nameSlug = words.slice(0,2).join('').toLowerCase();
+
+  for (const domain of candidates) {
+    try {
+      const r = spawnSync('curl', [
+        '-s', '--max-time', '5', '--max-redirs', '3',
+        '-L', '-A', UA,
+        `https://${domain}`,
+      ], { maxBuffer: 500 * 1024, timeout: 7000 });
+      const body = r.stdout?.toString() || '';
+      if (!body || body.length < 200) continue;
+
+      // Kontrollera att sidan faktiskt verkar tillhöra bolaget
+      // (domain-slug eller bolagsnamn bör finnas i HTML)
+      const bodyLower = body.toLowerCase().replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o');
+      if (bodyLower.includes(nameSlug) || bodyLower.includes(words[0])) {
+        return `https://${domain}`;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+// Steg 2: Google-sökning via Chrome headless (fallback)
+function googleSearch(companyName, city) {
+  const q = encodeURIComponent(`${companyName} ${city} hemsida`);
+  try {
+    const html = execSync(
+      `'${CHROME}' --headless=new --dump-dom --virtual-time-budget=3000 'https://www.google.se/search?q=${q}' 2>/dev/null`,
+      { maxBuffer: 4 * 1024 * 1024, timeout: 20000 }
+    ).toString();
+
+    const SKIP = ['google.','hitta.se','eniro.se','allabolag.se','proff.se',
+                  'ratsit.se','facebook.com','linkedin.com','instagram.com','wikipedia','youtube'];
+
+    // Extrahera href från sökresultat
+    const re = /href="(https?:\/\/[^"&?]+)"/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = m[1];
+      if (!SKIP.some(s => url.includes(s)) && url.includes('.se')) {
+        return url;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function searchForWebsite(companyName, city) {
+  // Försök 1: domänsgissning (snabb, ~80% träff)
+  const guessed = guessDomain(companyName);
+  if (guessed) return guessed;
+
+  // Försök 2: Google via Chrome headless (långsammare, fallback)
+  return googleSearch(companyName, city);
+}
+
 // ── STEG 2: Hämta hemsidestatus per bolag via curl ───────────────────────────
 
 function fetchCompanyWebsite(company) {
@@ -160,18 +246,31 @@ function fetchCompanyWebsite(company) {
     !SKIP_DOMAINS.some(d => u.includes(d))
   ) || null;
 
+  // Om sameAs saknar hemsida — sök på DuckDuckGo för att verifiera
+  let foundWebsite = website;
+  if (!foundWebsite) {
+    const name = ld.name || company.name;
+    const city = ld.address?.addressLocality || company.address?.addressLocality || CITY;
+    process.stderr.write(' [söker...] ');
+    const searched = searchForWebsite(name, city);
+    if (searched) {
+      foundWebsite = searched;
+      process.stderr.write(`[hittad: ${searched}] `);
+    }
+  }
+
   // Om de BARA har social media men ingen riktig hemsida = nästan lika dåligt som ingen hemsida
-  const onlySocial = !website && socialMedia.length > 0;
+  const onlySocial = !foundWebsite && socialMedia.length > 0;
 
   const { priority, label, score } = onlySocial
     ? { priority: 2, label: '🟠 Bara social media', score: 1 }
-    : assessWebsite(website);
+    : assessWebsite(foundWebsite);
 
   return {
     name: ld.name || company.name,
     phone: ld.telephone || company.phone,
-    website: website,
-    has_website: !!website,
+    website: foundWebsite,
+    has_website: !!foundWebsite,
     website_score: score,
     website_label: label,
     priority: priority,
