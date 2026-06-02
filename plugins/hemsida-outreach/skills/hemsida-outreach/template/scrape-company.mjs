@@ -319,14 +319,32 @@ function buildMockupData(hitaCompany) {
   let services;
   if (serviceSentences && serviceSentences.length >= 2) {
     services = serviceSentences.slice(0, 4).map((s, i) => {
-      // Extrahera tjänstens "namn" = första frasen
-      const words = s.split(/[,;]/)[0].trim();
-      const name = words.length > 40 ? words.slice(0, 40) + '…' : words;
-      const desc = s.length > 80 ? s.slice(0, 80) + '…' : s;
+      // Extrahera tjänstens "namn" = max 3 ord från första frasen
+      const phrase = s.split(/[,;.]/)[0].trim();
+      const STOP = /^(och|att|med|för|som|det|den|ett|en|av|på|är|vi|de|har|till|från|om|men|när|kan|dig|oss|sin|sig|var|samt|också|alla|våra|era|sedan|även)$/i;
+      // Ta 1-2 meningsbärande ord — prioritera substantiv (inte adjektiv på -ad/-ig/-lig)
+      const ADJSUFFIX = /(?:lad|lig|iga|ade|igt|bar|sam|full|lös|rad|ägt)$/i;
+      const nameWords = phrase.split(/\s+/)
+        .map(w => w.replace(/[^a-zA-ZåäöÅÄÖ]/g, ''))  // rensa bindestreck etc.
+        .filter(c => {
+          if (c.length < 5 || c.length > 22) return false;
+          if (STOP.test(c)) return false;
+          if (ADJSUFFIX.test(c) && c.length < 16) return false; // adjektiv bort (utökat)
+          return true;
+        })
+        .slice(0, 2);
+      // Om första ordet är ett långt specifikt kompositum (>=12 tecken), använd bara det
+      const firstWord = nameWords[0] || '';
+      const name = firstWord.length >= 12
+        ? firstWord
+        : nameWords.length > 0
+          ? nameWords.join(' ')
+          : phrase.split(/\s+/).slice(0, 2).join(' ');
+      const desc = s.length > 90 ? s.slice(0, 90) + '…' : s;
       return {
         name: name.charAt(0).toUpperCase() + name.slice(1),
         desc: desc,
-        icon: icons[i] || '✅'
+        icon: icons[i] || 'default'
       };
     });
     // Fyll upp till 4 om vi har för få
@@ -362,22 +380,40 @@ function buildMockupData(hitaCompany) {
     services = fallbacks[industryKey] || fallbacks['åkeri'];
   }
 
-  // Tagline: 4-6 ord, versaler, baserad på beskrivning eller bransch
+  // Tagline: Hämta distinktivt ord ur BOLAGSNAMNET (inte stad, inte AB/HB, inte generisk bransch)
+  // Mål: "BILDEMONTERING I HOLMSJÖ", "PÅLITLIGA TRANSPORTER I GRIMSÅS"
+  const INDUSTRY_TAGLINES = {
+    'åkeri':   'PÅLITLIGA TRANSPORTER',
+    'bygg':    'PROFFS PÅ BYGG',
+    'vvs':     'DIN VVS-EXPERT',
+    'städ':    'PROFFS PÅ STÄD',
+    'mark':    'MARKENTREPRENAD',
+    'logistik':'LOGISTIK & FRAKT',
+  };
+  const GENERIC_WORDS = /^(ab|hb|kb|aktiebolag|handelsbolag|åkeri|akeri|transport|bygg|vvs|stad|i|och|s|n|son|ssons|sson|logistik)$/i;
+  const citySlug = city.toLowerCase().replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o');
+
+  // Extrahera distinktiva ord från bolagsnamnet
+  // Uteslut: för korta ord (<6), generiska branschord, possessivformer (-s-slut = ägandeform/efternamn),
+  // samt ord som börjar på city-prefix (t.ex. "Smedjebackens" börjar med "smedj")
+  const nameWords = name.split(/[\s&+]+/)
+    .map(w => w.replace(/[^a-zA-ZåäöÅÄÖ]/g, ''))
+    .filter(w => {
+      if (w.length < 6) return false;                         // för kort = förnamn/preposition
+      const wl = w.toLowerCase().replace(/å/g,'a').replace(/ä/g,'a').replace(/ö/g,'o');
+      if (GENERIC_WORDS.test(wl)) return false;               // generiskt branschord
+      if (wl.endsWith('s') && w.length <= 12) return false;   // possessiv/efternamnsform (Hultmarks, Jonssons...)
+      if (wl.startsWith(citySlug.slice(0, 5))) return false;  // börjar med stadsnamnet
+      return true;
+    });
+
   let tagline;
-  if (description) {
-    // Ta de tre första orden från beskrivningen som inspiration
-    const words = description.split(' ').slice(0, 8);
-    const keyWords = words.filter(w => w.length > 3 && !/^(och|att|med|för|som|det|den|ett|en|av|på|är|vi|de|har|till|från|om|men|när|kan|dig|oss|sin|sig|var)$/i.test(w));
-    tagline = (keyWords.slice(0, 3).join(' ').toUpperCase() + ' I ' + city.toUpperCase()).slice(0, 50);
+  if (nameWords.length > 0) {
+    // Använd första distinktiva ord ur bolagsnamnet + stad
+    const keyWord = nameWords[0];
+    tagline = `${keyWord.toUpperCase()} I ${city.toUpperCase()}`;
   } else {
-    const taglines = {
-      'åkeri':     `PÅLITLIGA TRANSPORTER I ${city.toUpperCase()}`,
-      'bygg':      `PROFFS PÅ BYGG I ${city.toUpperCase()}`,
-      'vvs':       `DIN VVS-EXPERT I ${city.toUpperCase()}`,
-      'städ':      `PROFFS PÅ STÄD I ${city.toUpperCase()}`,
-      'mark':      `MARKENTREPRENAD I ${city.toUpperCase()}`,
-    };
-    tagline = taglines[industryKey] || `PROFFS I ${city.toUpperCase()}`;
+    tagline = (INDUSTRY_TAGLINES[industryKey] || 'PROFFS') + ' I ' + city.toUpperCase();
   }
 
   // Hero-subtext
